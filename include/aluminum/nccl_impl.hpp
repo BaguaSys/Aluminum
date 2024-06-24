@@ -93,6 +93,8 @@ class NCCLCommunicator : public internal::MPICommAndStreamWrapper<cudaStream_t> 
    NCCLCommunicator() : NCCLCommunicator(MPI_COMM_WORLD, 0) {}
   /** Use a particular MPI communicator and stream. */
   NCCLCommunicator(MPI_Comm comm_, cudaStream_t stream_ = 0);
+  /** disable mpi. */
+  NCCLCommunicator(int rank_, int size_, ncclUniqueId nccl_id_, cudaStream_t stream_ = 0);
   /** Cannot copy this. */
   NCCLCommunicator(const NCCLCommunicator& other) = delete;
   /** Default move constructor. */
@@ -106,6 +108,11 @@ class NCCLCommunicator : public internal::MPICommAndStreamWrapper<cudaStream_t> 
   /** Create a new NCCLCommunicator with the same processes and a new stream. */
   NCCLCommunicator copy(cudaStream_t stream = 0) {
     return NCCLCommunicator(get_comm(), stream);
+  }
+
+  /** gracefully abort uncompleted nccl operations */
+  void abort() {
+      AL_CHECK_NCCL(ncclCommAbort(m_nccl_comm));
   }
 
  private:
@@ -132,6 +139,8 @@ inline ncclRedOp_t ReductionOperator2ncclRedOp(ReductionOperator op) {
     return ncclMin;
   case ReductionOperator::max:
     return ncclMax;
+  case ReductionOperator::avg:
+    return ncclAvg;
   default:
     throw_al_exception("Reduction operator not supported");
   }
